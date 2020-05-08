@@ -1,6 +1,6 @@
-# Project_1
+# Project_2
 
-This repository is Project 1 in Udacity Deep Reinforcement Learning. 
+This repository is Project 2 Continuous Control in Udacity Deep Reinforcement Learning. 
 
 ## Getting started
 
@@ -24,6 +24,6 @@ Once the above steps are done, one needs to clone this repository to get the wor
 
 ## How to run
 
-Python code main.py in the repository contains all necessary code for this project. Train() in main.py is the entry function to train a model. Meanwhile, the main body of code is a complete workflow for training. Running python main.py will start training automatically. The script will save intermediate model into checkpoint file. 
+Python code main.py in the repository contains all necessary code for this project. Ddpg() in main.py is the entry function to train a model. Meanwhile, the main body of code is a complete workflow for training. Running python main.py will start training automatically. The script will save intermediate model into checkpoint file. 
 
-Serveral pretrained models have been already saved in this repository as .pth files. 
+A set of pretrained models have been already saved in this repository as .pth files. 
