@@ -22,25 +22,25 @@ Other hyperparameters are listed below:
 ## Trainig 
 The average score over 100 consecutive episodes reached 30.0 at 824th Episode as following: 
 
-> Episode 820	Average Score: 29.75	Score: 31.74
+> Episode 820	Average Score: 29.75	
 
-> Episode 821	Average Score: 29.80	Score: 30.47
+> Episode 821	Average Score: 29.80	
 
-> Episode 822	Average Score: 29.86	Score: 33.21
+> Episode 822	Average Score: 29.86	
 
-> Episode 823	Average Score: 29.93	Score: 31.94
+> Episode 823	Average Score: 29.93	
 
-> Episode 824	Average Score: 30.00	Score: 35.82
+> Episode 824	Average Score: 30.00	
 
-> Episode 825	Average Score: 29.99	Score: 29.00
+> Episode 825	Average Score: 29.99	
 
-> Episode 826	Average Score: 30.06	Score: 31.36
+> Episode 826	Average Score: 30.06	
 
-> Episode 827	Average Score: 30.15	Score: 35.33
+> Episode 827	Average Score: 30.15	
 
-> Episode 828	Average Score: 30.31	Score: 32.91
+> Episode 828	Average Score: 30.31	
 
-> Episode 829	Average Score: 30.31	Score: 29.21
+> Episode 829	Average Score: 30.31	
 
 ## Plot of rewards
 This plot demonstrates the training process. The Y-Axis is average of reward over 100 episodes. As the training goes on, the average reward over 100 episode reached above 16.0. 
