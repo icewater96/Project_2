@@ -43,9 +43,9 @@ The average score over 100 consecutive episodes reached 30.0 at 824th Episode as
 > Episode 829	Average Score: 30.31	
 
 ## Plot of rewards
-This plot demonstrates the training process. The Y-Axis is average of reward over 100 episodes. As the training goes on, the average reward over 100 episode reached above 16.0. 
+This plot demonstrates the training process. The Y-Axis is average of reward over 100 episodes. As the training goes on, the average reward over 100 episode reached above 30.0. 
 
-![](Figure 2020-05-08 001519.png)
+![](Figure_2020-05-08_001519.png)
 
 
 ## Future work
