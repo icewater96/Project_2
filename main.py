@@ -16,19 +16,29 @@ import random
 from collections import namedtuple, deque
 import matplotlib.pyplot as plt
 import copy
-
+import pandas as pd
 
 BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 128        # minibatch size
-GAMMA = 0.99            # discount factor
+GAMMA = 0.95            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 3e-4        # learning rate of the critic
-WEIGHT_DECAY = 0.0001   # L2 weight decay
+
+LR_CRITIC = 1e-3        # learning rate of the critic
+
+WEIGHT_DECAY = 0        # L2 weight decay
+
+UPDATE_EVERY = 20 
+UPDATE_TIMES = 10
+
+
+EPSILON  = 1.0          # WEgiht added noise to control exploration 
+EPSILON_DECAY = 1e-6    
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#%%
+#HIDDEN_UNITS = 64
+
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
     lim = 1. / np.sqrt(fan_in)
@@ -37,7 +47,7 @@ def hidden_init(layer):
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, fc_units=256):
+    def __init__(self, state_size, action_size, seed, fc1_units=256, fc2_units=128, fc3_units=64):
         """Initialize parameters and build model.
         Params
         ======
@@ -47,26 +57,46 @@ class Actor(nn.Module):
             fc1_units (int): Number of nodes in first hidden layer
             fc2_units (int): Number of nodes in second hidden layer
         """
+        
         super(Actor, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, fc_units)
-        self.fc2 = nn.Linear(fc_units, action_size)
-        self.reset_parameters()
+        self.fc1 = nn.Linear(state_size, fc1_units)
+        self.fc2 = nn.Linear(fc1_units, fc2_units)
+        self.fc3 = nn.Linear(fc2_units, fc3_units)
+        self.fc4 = nn.Linear(fc3_units, action_size)
+        
+        self.bn_fc1 = nn.BatchNorm1d(fc1_units)
+        #self.bin_hidden = nn.BatchNorm1d(hidden_size)
+        self.reset_parameters()        
 
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.fc2.weight.data.uniform_(-3e-3, 3e-3)
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
+        self.fc4.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        x = F.relu(self.fc1(state))
-        return F.tanh(self.fc2(x))
+        x = self.fc1(state)
+        #x = self.bn_fc1(x)
+        x = F.relu(x)
+        
+        x = self.fc2(x)
+        #x = self.bn_hidden(x)
+        x = F.relu(x)
+        
+        x = self.fc3(x)
+        x = F.relu(x)
+        
+        x = self.fc4(x)
+        x = torch.tanh(x)
+        return x
 
 
 class Critic(nn.Module):
     """Critic (Value) Model."""
 
-    def __init__(self, state_size, action_size, seed, fcs1_units=256, fc2_units=256, fc3_units=128):
+    def __init__(self, state_size, action_size, seed, fcs1_units=256, fc2_units=128, fc3_units=64):
         """Initialize parameters and build model.
         Params
         ======
@@ -76,12 +106,15 @@ class Critic(nn.Module):
             fcs1_units (int): Number of nodes in the first hidden layer
             fc2_units (int): Number of nodes in the second hidden layer
         """
+        
         super(Critic, self).__init__()
         self.seed = torch.manual_seed(seed)
         self.fcs1 = nn.Linear(state_size, fcs1_units)
-        self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
+        self.fc2 = nn.Linear(fcs1_units + action_size, fc2_units)
         self.fc3 = nn.Linear(fc2_units, fc3_units)
         self.fc4 = nn.Linear(fc3_units, 1)
+
+        self.bn_input = nn.BatchNorm1d(fcs1_units)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -92,11 +125,19 @@ class Critic(nn.Module):
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
-        xs = F.leaky_relu(self.fcs1(state))
+        xs = self.fcs1(state)
+        xs = self.bn_input(xs)
+        xs = F.relu(xs)
+        
         x = torch.cat((xs, action), dim=1)
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        return self.fc4(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+
+        x = self.fc3(x)        
+        x = F.relu(x)
+        
+        x = self.fc4(x)
+        return x
 
 
 class ReplayBuffer:
@@ -177,7 +218,7 @@ class Agent():
         self.seed = random.seed(random_seed)
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(state_size, action_size, random_seed).to(device)
+        self.actor_local = Actor(state_size, action_size, random_seed,).to(device)
         self.actor_target = Actor(state_size, action_size, random_seed).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
 
@@ -186,8 +227,16 @@ class Agent():
         self.critic_target = Critic(state_size, action_size, random_seed).to(device)
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
+        # This shouldn't make any difference
+        self.soft_update(self.actor_local, self.actor_target, 1)
+        self.soft_update(self.critic_local, self.critic_target, 1)
+
         # Noise process
         self.noise = OUNoise(action_size, random_seed)
+        self.epsilon = EPSILON
+
+        # Control update frequency
+        self.update_count = 0
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
@@ -197,10 +246,15 @@ class Agent():
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
 
+        # Trigger learning every UPDATE_EVERY time steps
+        self.update_count = (self.update_count + 1) % UPDATE_EVERY
+
         # Learn, if enough samples are available in memory
-        if len(self.memory) > BATCH_SIZE:
-            experiences = self.memory.sample()
-            self.learn(experiences, GAMMA)
+        if len(self.memory) > BATCH_SIZE and self.update_count == 0:
+            # Update a few times
+            for _ in range(UPDATE_TIMES):
+                experiences = self.memory.sample()
+                self.learn(experiences, GAMMA)
 
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
@@ -209,8 +263,11 @@ class Agent():
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
+        
+        # Add noise to control exploration
         if add_noise:
-            action += self.noise.sample()
+            self.epsilon -= EPSILON_DECAY
+            action += self.noise.sample() * np.maximum(self.epsilon, 0.1)
         return np.clip(action, -1, 1)
 
     def reset(self):
@@ -242,6 +299,10 @@ class Agent():
         # Minimize the loss
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+        
+        # Perform gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        
         self.critic_optimizer.step()
 
         # ---------------------------- update actor ---------------------------- #
@@ -298,13 +359,14 @@ def ddpg(n_episodes=2000, max_t=700):
     for i_episode in range(1, n_episodes+1):
         env_info = env.reset(train_mode=True)[brain_name]
         state = env_info.vector_observations[0]
-        
+
+        #print(state)        
         #state = env.reset()
         
         score = 0
         for t in range(max_t):
             action = agent.act(state)
-            
+                        
             # take action, observe reward, get next_state
             env_info = env.step(action)[brain_name]
                 
@@ -312,25 +374,21 @@ def ddpg(n_episodes=2000, max_t=700):
             reward = env_info.rewards[0]
             done = int(env_info.local_done[0])
             score += reward            
-            
-            #next_state, reward, done, _ = env.step(action)
-            #state = next_state
-            #score += reward
-            
+                    
             agent.step(state, action, reward, next_state, done)
             
             # For the next t
             state = next_state
-            
+                      
             if done:
                 break 
+        
         scores_deque.append(score)
         scores.append(score)
-        print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}'.format(i_episode, np.mean(scores_deque), score), end="")
+        #print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}'.format(i_episode, np.mean(scores_deque), score), end="")
         if i_episode % 5 == 0:
             torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
             torch.save(agent.critic_local.state_dict(), 'checkpoint_critic.pth')
-            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))   
     return scores
 
             
@@ -357,7 +415,7 @@ if __name__ == '__main__':
     state_size = len(state)
     print('States have length:', state_size)
 
-    agent = Agent(state_size=state_size, action_size=action_size, random_seed=10)
+    agent = Agent(state_size=state_size, action_size=action_size, random_seed=2)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -365,13 +423,19 @@ if __name__ == '__main__':
     if False:
         randomly_move()
     else:
-        scores = ddpg(100, 70)
+        scores = ddpg(1000, 1000)
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        score_df = pd.DataFrame({'Score': scores})
+        average_score = score_df['Score'].rolling(window=100).mean()
+
+        plt.figure(figsize=[8,6])
         plt.plot(np.arange(1, len(scores)+1), scores)
+        plt.plot(np.arange(1, len(scores)+1), average_score)
         plt.ylabel('Score')
         plt.xlabel('Episode #')
+        plt.legend(['Score', 'Average Score'])
+        plt.grid(True)
+
 
 
 
