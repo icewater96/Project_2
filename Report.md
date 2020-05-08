@@ -21,8 +21,8 @@ Other hyperparameters are listed below:
 
 ## Trainig 
 The average score over 100 consecutive episodes reached 30.0 at 824th Episode as following: 
-Episode 820	Average Score: 29.75	Score: 31.74
-Episode 821	Average Score: 29.80	Score: 30.47
+> Episode 820	Average Score: 29.75	Score: 31.74
+> Episode 821	Average Score: 29.80	Score: 30.47
 Episode 822	Average Score: 29.86	Score: 33.21
 Episode 823	Average Score: 29.93	Score: 31.94
 Episode 824	Average Score: 30.00	Score: 35.82
