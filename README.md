@@ -1,6 +1,6 @@
 # Project_2
 
-This repository is Project 2 Continuous Control version 1 in Udacity Deep Reinforcement Learning. 
+This repository is Project 2 Continuous Control Option 1 in Udacity Deep Reinforcement Learning. 
 
 ## Getting started
 
